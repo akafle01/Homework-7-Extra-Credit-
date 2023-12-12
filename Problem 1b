@@ -1,0 +1,47 @@
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+import time
+
+# Loading the CIFAR-10 dataset
+(train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
+
+# Normalizing pixel values to be between 0 and 1
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+# One-hot encode the labels
+train_labels = to_categorical(train_labels, 10)
+test_labels = to_categorical(test_labels, 10)
+
+# Building the extended CNN model
+model = models.Sequential()
+model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Conv2D(128, (3, 3), activation='relu'))  # Additional convolutional layer
+model.add(layers.MaxPooling2D((2, 2)))
+model.add(layers.Flatten())
+model.add(layers.Dense(128, activation='relu'))  # Adjusted fully connected layer
+model.add(layers.Dense(10, activation='softmax'))  # Output layer with 10 classes
+
+# Compile the model
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# Display the model architecture
+model.summary()
+
+# Training the extended model
+start_time = time.time()
+history = model.fit(train_images, train_labels, epochs=300, validation_data=(test_images, test_labels))
+end_time = time.time()
+
+# Printing training time
+print("Training Time: {:.2f} seconds".format(end_time - start_time))
+# Evaluation of the extended model
+test_loss, test_acc = model.evaluate(test_images, test_labels)
+# Printing test accuracy
+print("Test Accuracy: {:.2f}%".format(test_acc * 100))
