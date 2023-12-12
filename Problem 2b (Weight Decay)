@@ -1,0 +1,57 @@
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+import time
+
+# Load CIFAR-10 dataset
+(train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
+
+# Normalize pixel values to be between 0 and 1
+train_images, test_images = train_images / 255.0, test_images / 255.0
+
+# One-hot encode the labels
+train_labels = to_categorical(train_labels, 10)
+test_labels = to_categorical(test_labels, 10)
+
+# Define the Residual Block
+def residual_block(x, filters, kernel_size=3, stride=1, activation='relu', kernel_regularizer=None):
+    y = layers.Conv2D(filters, kernel_size=kernel_size, strides=stride, padding='same', kernel_regularizer=kernel_regularizer)(x)
+    y = layers.BatchNormalization()(y)
+    y = layers.Activation(activation)(y)
+    y = layers.Conv2D(filters, kernel_size=kernel_size, strides=stride, padding='same', kernel_regularizer=kernel_regularizer)(y)
+    y = layers.BatchNormalization()(y)
+
+    # Skip connection
+    if stride != 1:
+        x = layers.Conv2D(filters, kernel_size=1, strides=stride, padding='same', kernel_regularizer=kernel_regularizer)(x)
+    out = layers.add([x, y])
+    out = layers.Activation(activation)(out)
+    return out
+
+# Build ResNet-10 model with Weight Decay
+inputs = tf.keras.Input(shape=(32, 32, 3))
+x = layers.Conv2D(64, (3, 3), strides=1, padding='same', kernel_regularizer=tf.keras.regularizers.l2(0.001))(inputs)
+x = layers.BatchNormalization()(x)
+x = layers.Activation('relu')(x)
+
+# Add Residual Blocks
+for _ in range(9):  # 9 blocks for ResNet-10
+    x = residual_block(x, 64, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001))
+
+x = layers.GlobalAveragePooling2D()(x)
+outputs = layers.Dense(10, activation='softmax')(x)
+
+model_weight_decay = models.Model(inputs, outputs)
+
+# Compile the model
+model_weight_decay.compile(optimizer='adam',
+                           loss='categorical_crossentropy',
+                           metrics=['accuracy'])
+
+# Train the ResNet-10 model with Weight Decay
+history_weight_decay = model_weight_decay.fit(train_images, train_labels, epochs=300, validation_data=(test_images, test_labels))
+
+# Evaluate the model
+test_loss, test_acc = model_weight_decay.evaluate(test_images, test_labels)
+print("Weight Decay - Test Accuracy: {:.2f}%".format(test_acc * 100))
